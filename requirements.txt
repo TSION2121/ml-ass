@@ -1,6 +1,9 @@
-gunicorn app:app
 Flask
+gunicorn
 pandas
 numpy
 scikit-learn
 joblib
+matplotlib
+seaborn
+waitress

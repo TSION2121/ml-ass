@@ -10,6 +10,7 @@ from model.classification_model import ClassificationModel
 from model.regression_model import RegressionModel
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, r2_score
 from sklearn.datasets import fetch_california_housing, load_iris
+from waitress import serve
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -186,4 +187,5 @@ def home():
     return render_template('home.html')
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    # app.run(debug=True, port=5000)
+    serve(app, host='0.0.0.0', port=8080)
