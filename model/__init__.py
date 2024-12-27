@@ -9,3 +9,4 @@ Imports:
 
 from .classification_model import ClassificationModel
 from .regression_model import RegressionModel
+from .random_forest_regressor_model import RandomForestRegressionModel

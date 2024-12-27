@@ -3,8 +3,9 @@
   <component name="Black">
     <option name="executionMode" value="BINARY" />
     <option name="pathToExecutable" value="C:\ProgramData\anaconda3\Scripts\black.exe" />
+    <option name="sdkName" value="Python 3.11 (ML-FLASK)" />
   </component>
-  <component name="ProjectRootManager">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_23" project-jdk-name="Python 3.11 (ML-FLASK) (2)" project-jdk-type="Python SDK">
     <output url="file://$PROJECT_DIR$/out" />
   </component>
 </project>

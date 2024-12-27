@@ -64,7 +64,7 @@ class ClassificationModel:
         }
         synthetic_df = pd.DataFrame(synthetic_data)
         data = pd.concat([data, synthetic_df], ignore_index=True)
-
+        # splitting features
         X = data.drop(columns=['species'])
         y = data['species']
 
@@ -72,6 +72,7 @@ class ClassificationModel:
         y.dropna(inplace=True)
 
         X = self.scaler.fit_transform(X)
+
         X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, random_state=42)
         X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, random_state=42)
 
@@ -99,6 +100,16 @@ class ClassificationModel:
         grid_search.fit(X_train, y_train)
         self.model = grid_search.best_estimator_
 
+        # Print the best parameters, score, and detailed results
+        print("Best parameters found: ", grid_search.best_params_)
+        print("Best cross-validation score: ", grid_search.best_score_)
+        print("Best estimator: ", grid_search.best_estimator_)
+
+        # Optional: Detailed results
+        results = grid_search.cv_results_
+        for mean_score, params in zip(results["mean_test_score"], results["params"]):
+            print(f"Mean test score: {mean_score:.3f} for parameters: {params}")
+
         # Save the trained model
         joblib.dump(self.model, 'iris_model.pkl')
 
@@ -122,4 +133,7 @@ class ClassificationModel:
         predicted_species = self.species_map[int(prediction[0])]
         return predicted_species
 
+# Train the classification model
 classification_model = ClassificationModel()
+X_train_cls, X_val_cls, X_test_cls, y_train_cls, y_val_cls, y_test_cls = classification_model.load_and_preprocess_data()
+classification_model.train(X_train_cls, y_train_cls)

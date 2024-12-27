@@ -1,16 +1,19 @@
 from flask import Flask, render_template, request, jsonify, Blueprint
 import pandas as pd
-import joblib
+import numpy as np
 import logging
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
 import base64
-from model.classification_model import ClassificationModel
-from model.regression_model import RegressionModel
+import joblib
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, classification_report, confusion_matrix, mean_absolute_error, mean_squared_error, r2_score
 from sklearn.datasets import fetch_california_housing, load_iris
+from model.classification_model import ClassificationModel
+from model.regression_model import RegressionModel
+from model.random_forest_regressor_model import RandomForestRegressionModel
 from waitress import serve
+from updated import scaled_features, features, data, corr_matrix
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,34 +34,111 @@ X_train_reg, X_val_reg, X_test_reg, y_train_reg, y_val_reg, y_test_reg = regress
 regression_model.train(X_train_reg, y_train_reg)
 logging.info("Regression model trained and saved.")
 
+# Load and train Random Forest Regression model
+random_forest_model = RandomForestRegressionModel()
+url = "https://data.nasa.gov/resource/e6wj-e2uc.json"
+X_train, X_val, X_test, y_train, y_val, y_test = random_forest_model.load_and_preprocess_data(url)
+random_forest_model.train(X_train, y_train)
+model, scaler, scaled_features, feature_columns = joblib.load('final_model1.pkl')
+
 # Blueprint for regression routes
 regression_bp = Blueprint('regression', __name__, template_folder='templates')
 
 # Blueprint for classification routes
 classification_bp = Blueprint('classification', __name__, template_folder='templates')
 
+# Blueprint for Random Forest Regression routes
+random_forest_regression_bp = Blueprint('random_forest_regression', __name__, template_folder='templates')
+
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@random_forest_regression_bp.route('/')
+def random_forest_regression_home():
+    return render_template('random_forest_regression.html')
+
+@random_forest_regression_bp.route('/predict', methods=['POST'])
+def predict_random_forest_regression():
+    try:
+        data = request.get_json(force=True)
+        input_data = {feature: 0 for feature in feature_columns}  # Initialize all features to 0
+        input_data.update({feature: data['features'][i] for i, feature in enumerate(feature_columns[:len(data['features'])])})
+        features_df = pd.DataFrame([input_data])
+        features_df[scaled_features] = scaler.transform(features_df[scaled_features])
+        prediction = model.predict(features_df)
+
+        # Evaluation metrics on the test set
+        y_pred = model.predict(X_test)
+        mse = mean_squared_error(y_test, y_pred)
+        rmse = mse ** 0.5  # Manually calculate RMSE
+        r2 = r2_score(y_test, y_pred)
+
+        # Plotting actual vs predicted values
+        plt.figure(figsize=(10, 6))
+        sns.scatterplot(x=y_test, y=y_pred)
+        plt.plot([min(y_test), max(y_test)], [min(y_test), max(y_test)], color='green', linestyle='--')
+        plt.xlabel('Actual Values')
+        plt.ylabel('Predicted Values')
+        plt.title('Actual vs. Predicted Values for Random Forest Regressor')
+
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        plot_url = base64.b64encode(img.getvalue()).decode()
+
+        return jsonify({
+            'prediction': prediction[0],
+            'mse': mse,
+            'rmse': rmse,
+            'r2': r2,
+            'plot_url': f'data:image/png;base64,{plot_url}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
+@random_forest_regression_bp.route('/graphs', methods=['GET'])
+def get_graphs():
+    try:
+        # Generate and encode graphs
+        graphs = []
+
+        # Histogram
+        for feature in features:
+            plt.figure(figsize=(10, 6))
+            sns.histplot(data[feature], kde=True)
+            plt.title(f'Distribution of {feature}')
+            img = io.BytesIO()
+            plt.savefig(img, format='png')
+            img.seek(0)
+            graphs.append(base64.b64encode(img.getvalue()).decode())
+
+        # Pairplot
+        pairplot = sns.pairplot(data, vars=features)
+        img = io.BytesIO()
+        pairplot.savefig(img, format='png')
+        img.seek(0)
+        graphs.append(base64.b64encode(img.getvalue()).decode())
+
+        # Correlation Matrix
+        plt.figure(figsize=(10, 6))
+        sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
+        plt.title('Correlation Matrix')
+        img = io.BytesIO()
+        plt.savefig(img, format='png')
+        img.seek(0)
+        graphs.append(base64.b64encode(img.getvalue()).decode())
+
+        return jsonify({'graphs': graphs})
+    except Exception as e:
+        return jsonify({'error': str(e)})
+
 @regression_bp.route('/')
 def regression_home():
-    """
-    Renders the home page for regression predictions.
-
-    Returns
-    -------
-    HTML template
-        The regression.html template.
-    """
     return render_template('regression.html')
 
 @regression_bp.route('/predict', methods=['POST'])
 def predict_regression():
-    """
-    Predicts house prices based on input data and returns the prediction and evaluation metrics.
-
-    Returns
-    -------
-    JSON
-        Contains the prediction, mean absolute error, mean squared error, R², and a plot URL.
-    """
     try:
         data = request.get_json(force=True)
         feature_names = fetch_california_housing().feature_names
@@ -97,28 +177,14 @@ def predict_regression():
         logging.error(f'Error during regression prediction: {e}')
         return jsonify({'error': str(e)})
 
+
+
 @classification_bp.route('/')
 def classification_home():
-    """
-    Renders the home page for classification predictions.
-
-    Returns
-    -------
-    HTML template
-        The classification.html template.
-    """
     return render_template('classification.html')
 
 @classification_bp.route('/predict', methods=['POST'])
 def predict_classification():
-    """
-    Predicts iris species based on input data and returns the prediction and evaluation metrics.
-
-    Returns
-    -------
-    JSON
-        Contains the prediction, accuracy, precision, recall, F1-score, classification report, and a confusion matrix plot URL.
-    """
     try:
         logging.info('Entered the classification prediction route.')
         data = request.get_json(force=True)
@@ -173,19 +239,9 @@ def predict_classification():
 # Register Blueprints
 app.register_blueprint(regression_bp, url_prefix='/regression')
 app.register_blueprint(classification_bp, url_prefix='/classification')
+app.register_blueprint(random_forest_regression_bp, url_prefix='/random_forest_regression')
 
-@app.route('/')
-def home():
-    """
-    Renders the home page.
 
-    Returns
-    -------
-    HTML template
-        The home.html template.
-    """
-    return render_template('home.html')
 
 if __name__ == '__main__':
-    # app.run(debug=True, port=5000)
-    serve(app, host='0.0.0.0', port=8080)
+    serve(app, host='127.0.0.1', port=8080)

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Random Forest Regression Prediction</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body class="container mt-5">
+<div class="mt-4">
+    <a href="/" class="btn btn-light">Back to Homepage</a>
+</div>
+<h1 class="text-center mb-4">Predict Space Mission Cost</h1>
+<form id="predictForm" class="mb-5">
+    <div id="feature-inputs" class="mb-3"></div>
+    <button type="submit" class="btn btn-primary">Predict</button>
+    <button type="button" id="clearAllButton" class="btn btn-secondary ms-2">Clear All</button>
+</form>
+<div>
+    <h2>Prediction: <span id="prediction" class="badge bg-info text-dark"></span></h2>
+</div>
+<div>
+    <h3>Evaluation Metrics</h3>
+    <ul>
+        <li><strong>MSE:</strong> <span id="mse"></span></li>
+        <li><strong>RMSE:</strong> <span id="rmse"></span></li>
+        <li><strong>R²:</strong> <span id="r2"></span></li>
+    </ul>
+    <h3>Actual vs. Predicted Values</h3>
+    <img id="prediction-plot" class="img-fluid" alt="Actual vs. Predicted Values Plot"/>
+</div>
+<div id="graphs"></div>
+
+<script>
+    const featureNames = [
+        { name: "date_doy", label: "Date DOY" },
+        { name: "et1989", label: "ET 1989" },
+        { name: "b0", label: "B0" },
+        { name: "b1", label: "B1" },
+        { name: "year", label: "Year" },
+        { name: "day_of_year", label: "Day of Year" },
+        { name: "orb_C03", label: "Orb C03" },
+        { name: "orb_G28", label: "Orb G28" },
+        { name: "orb_G29", label: "Orb G29" },
+        { name: "orb_I25", label: "Orb I25" },
+        { name: "orb_I27", label: "Orb I27" }
+    ];
+
+    featureNames.forEach(feature => {
+        $('#feature-inputs').append(`
+                <div class="mb-3">
+                    <label for="${feature.name}" class="form-label">${feature.label}:</label>
+                    <input type="number" step="0.01" class="form-control" id="${feature.name}" name="${feature.name}" required>
+                </div>
+            `);
+    });
+
+    $(document).ready(function() {
+        $('#predictForm').on('submit', function(event) {
+            event.preventDefault();
+            const data = {};
+            featureNames.forEach(feature => {
+                data[feature.name] = parseFloat($(`#${feature.name}`).val());
+            });
+
+            fetch('/random_forest_regression/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ features: Object.values(data) })
+            })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.error) {
+                        $('#prediction').text('Error: ' + result.error);
+                    } else {
+                        $('#prediction').text(result.prediction);
+                        $('#mse').text(result.mse);
+                        $('#rmse').text(result.rmse);
+                        $('#r2').text(result.r2);
+                        $('#prediction-plot').attr('src', result.plot_url);
+                    }
+                })
+                .catch(error => $('#prediction').text('Prediction failed.'));
+        });
+
+        $('#clearAllButton').on('click', function() {
+            $('#predictForm')[0].reset();
+            $('#prediction').text('');
+            $('#mse').text('');
+            $('#rmse').text('');
+            $('#r2').text('');
+            $('#prediction-plot').attr('src', '');
+        });
+
+        fetchGraphs();
+    });
+
+    function fetchGraphs() {
+        fetch('/random_forest_regression/graphs')
+            .then(response => response.json())
+            .then(result => {
+                if (result.error) {
+                    $('#graphs').html('Error: ' + result.error);
+                } else {
+                    result.graphs.forEach(graph => {
+                        $('#graphs').append(`<img src="data:image/png;base64,${graph}" class="img-fluid"/>`);
+                    });
+                }
+            })
+            .catch(error => $('#graphs').html('Failed to load graphs.'));
+    }
+</script>
+</body>
+</html>
