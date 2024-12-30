@@ -7,6 +7,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LinearRegression, Lasso
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import mean_squared_error, r2_score
+# Additional imports for handling the error and ensuring required packages are there
 
 # Load the JSON data
 url = "https://data.nasa.gov/resource/e6wj-e2uc.json"
@@ -105,8 +106,8 @@ for name, model in models.items():
     results[name] = {"MSE": mse, "RMSE": rmse, "R²": r2}
     print(f"{name} - MSE: {mse}, RMSE: {rmse}, R²: {r2}")
 
-# Save the processed data to an Excel file
-data.to_excel('processed_data1.xlsx', index=False)
+# # Save the processed data to an Excel file
+# data.to_excel('processed_data1.xlsx', index=False)
 
 # Save the Random Forest Regressor model along with scaler, scaled features, and feature columns
 joblib.dump((random_forest_reg, scaler, scaled_features, X.columns), 'final_model1.pkl')
