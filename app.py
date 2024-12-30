@@ -2,6 +2,8 @@ from flask import Flask, render_template, request, jsonify, Blueprint
 import pandas as pd
 import numpy as np
 import logging
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import seaborn as sns
 import io
@@ -82,17 +84,16 @@ def predict_random_forest_regression():
         plt.ylabel('Predicted Values')
         plt.title('Actual vs. Predicted Values for Random Forest Regressor')
 
-        img = io.BytesIO()
-        plt.savefig(img, format='png')
-        img.seek(0)
-        plot_url = base64.b64encode(img.getvalue()).decode()
+        img_path = 'static/plots/random_forest_regressor.png'
+        plt.savefig(img_path)
+        plt.close()  # Close the plot to avoid displaying
 
         return jsonify({
             'prediction': prediction[0],
             'mse': mse,
             'rmse': rmse,
             'r2': r2,
-            'plot_url': f'data:image/png;base64,{plot_url}'
+            'plot_url': f'/{img_path}'
         })
     except Exception as e:
         return jsonify({'error': str(e)})
@@ -100,7 +101,7 @@ def predict_random_forest_regression():
 @random_forest_regression_bp.route('/graphs', methods=['GET'])
 def get_graphs():
     try:
-        # Generate and encode graphs
+        # Generate and save graphs
         graphs = []
 
         # Histogram
@@ -108,30 +109,31 @@ def get_graphs():
             plt.figure(figsize=(10, 6))
             sns.histplot(data[feature], kde=True)
             plt.title(f'Distribution of {feature}')
-            img = io.BytesIO()
-            plt.savefig(img, format='png')
-            img.seek(0)
-            graphs.append(base64.b64encode(img.getvalue()).decode())
+            img_path = f'static/plots/hist_{feature}.png'
+            plt.savefig(img_path)
+            plt.close()  # Close the plot to avoid displaying
+            graphs.append(img_path)
 
         # Pairplot
         pairplot = sns.pairplot(data, vars=features)
-        img = io.BytesIO()
-        pairplot.savefig(img, format='png')
-        img.seek(0)
-        graphs.append(base64.b64encode(img.getvalue()).decode())
+        img_path = 'static/plots/pairplot.png'
+        pairplot.savefig(img_path)
+        plt.close()  # Close the plot to avoid displaying
+        graphs.append(img_path)
 
         # Correlation Matrix
         plt.figure(figsize=(10, 6))
         sns.heatmap(corr_matrix, annot=True, cmap='coolwarm')
         plt.title('Correlation Matrix')
-        img = io.BytesIO()
-        plt.savefig(img, format='png')
-        img.seek(0)
-        graphs.append(base64.b64encode(img.getvalue()).decode())
+        img_path = 'static/plots/correlation_matrix.png'
+        plt.savefig(img_path)
+        plt.close()  # Close the plot to avoid displaying
+        graphs.append(img_path)
 
         return jsonify({'graphs': graphs})
     except Exception as e:
         return jsonify({'error': str(e)})
+
 
 @regression_bp.route('/')
 def regression_home():
